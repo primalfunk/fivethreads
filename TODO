@@ -1,0 +1,6 @@
+12.27 - Big improvement to city name generation logic, we now pull from a list of real counties in realworld data and use the names of the cities within that county. Very broad range of countries included. Fixed districts not getting colors.
+12.30 - Massive overhaul to the UI with some fresh graphics and animations
+
+TODO
+- Clicking and dragging into a different district should not change the selected district for touch up (UI)
+- Finish the Create Spy
