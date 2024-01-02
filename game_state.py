@@ -3,11 +3,20 @@ class GameState:
         self.player_manager = player_manager
         self.district_manager = district_manager
         self.spymaster = spymaster
+
+        self.refresh_UI_callback = None
         self.num_players = len(self.player_manager.players)
         self.current_player_index = 0  # Start with the first player
+        self.current_player = self.player_manager.players[self.current_player_index]
+        
         self.turn_number = 1
         self.round = 1 # a round passes when every player has taken their turn once
         print(f"Turn number {self.turn_number} of round {self.round} - this is {self.player_manager.players[self.current_player_index].name}'s turn.")
+
+    def handle_menu_actions(self, action, player, district):
+        if action == "Create Spy":
+            self.spymaster.create_spy(player, district)
+            self.refresh_UI_callback()
 
     def next_turn(self):
         # Logic to advance to the next player's turn

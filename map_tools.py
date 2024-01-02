@@ -91,8 +91,6 @@ class DistrictLabel(Widget):
             Color(1, 1, 1, 0.7)  # Light color with some transparency
             self.rect = Rectangle()
 
-        self.update_label()
-
     def update_label(self):
         centroid = self.district.polygon.centroid.coords[0]
         transformed_centroids = self.transform_coordinates([centroid], self.map_border.x, self.map_border.y, self.map_border.width, self.map_border.height)
@@ -103,6 +101,22 @@ class DistrictLabel(Widget):
         self.label.pos = (self.x + self.padding / 2, self.y + self.padding / 2)
         self.rect.size = self.size
         self.rect.pos = self.pos
+
+        self.canvas.remove_group("coins")
+        spy_types = self.district.get_spy_types()
+        # Define the order of the coins
+        coin_order = ['local', 'living', 'inside', 'reverse', 'dead']
+        coins_to_draw = [f"{spy_type}_coin.png" for spy_type in coin_order if spy_type in spy_types]
+        # Draw coins
+        coin_size = self.map_border.width * 0.02
+        coin_distance = self.map_border.width * 0.002
+        for index, coin_image in enumerate(coins_to_draw):
+            coin_path = f"images/{coin_image}"
+            with self.canvas:
+                Color(1, 1, 1, 1)  # Reset color if needed
+                coin_pos_x = self.x + index * (coin_size + coin_distance)
+                coin_pos_y = self.y - coin_distance - coin_size
+                Rectangle(source=coin_path, pos=(coin_pos_x, coin_pos_y), size=(coin_size, coin_size), group="coins")
 
     def on_size(self, *args):
         self.rect.size = self.size

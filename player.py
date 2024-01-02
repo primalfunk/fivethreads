@@ -10,7 +10,6 @@ class Player:
         self.turn_ap = 0
         self.total_ap = self.calculate_action_points()
 
-
     def update_resources(self):
         gold = 0
         intel = 0

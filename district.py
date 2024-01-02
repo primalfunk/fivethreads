@@ -16,7 +16,16 @@ class District:
         self.intel = 0
         self.touched_color = None
         self.spies = []
+        self.spy_types = set()
         self.level = 0
+
+    def get_spy_types(self):
+        self.spy_types = set()
+        for spy in self.spies:
+            self.spy_types.add(spy.type)
+        for type in list(self.spy_types):
+            print(f"Spy in District.spy_types: {type}")
+        return list(self.spy_types)
 
     def generate_base_color(self):
         base_hues = {

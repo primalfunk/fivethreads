@@ -17,13 +17,16 @@ from setup import GameSetup
 from shapely.geometry import Point
 
 class UI(Widget):
-    def __init__(self, screen_size, districts, player_manager, **kwargs):
+    def __init__(self, screen_size, game_setup, **kwargs):
         super(UI, self).__init__(**kwargs)
-        self.districts = districts
+        self.game_setup = game_setup
+        self.district_manager = self.game_setup.district_manager
+        self.districts = self.game_setup.district_manager.districts
         self.screen_size = screen_size
         self.screen_width, self.screen_height = self.screen_size
         self.map_border = self.create_map_border()
-        self.player_manager = player_manager
+        self.player_manager = self.game_setup.player_manager
+        self.spymaster = self.game_setup.spymaster
         self.num_districts = 40
         self.num_players = len(self.player_manager.players)
         self.current_player = self.player_manager.players[0]
@@ -35,11 +38,8 @@ class UI(Widget):
         )
         self.reset_button.bind(on_press=self.reset_game)
         self.add_widget(self.reset_button)
-        # Initialize MainMenu with a fixed size
-        self.main_menu = MainMenu(self, self.current_player.owned_districts[0], self.districts)
+        self.main_menu = MainMenu(self, self.current_player.owned_districts[0], self.districts, action_callback=self.game_setup.game_state.handle_menu_actions)
         self.main_menu.size = (self.screen_size[0] / 2, self.screen_size[1] / 2)  # Fixed size
-        print(f"Main Menu size is set at init to screen_width / 2, screen_height / 2; [{self.screen_size[0] / 2},{self.screen_size[1]} / 2]")
-        # Initialize Popup once with the same size as MainMenu
         self.main_menu_popup = Popup(
             title="",
             separator_height=0,
@@ -52,9 +52,15 @@ class UI(Widget):
    
     def reset_game(self, instance):
         self.num_districts = 40
-        self.game = GameSetup(self.num_players, self.num_districts, self.screen_size)
-        self.districts = self.game.district_manager.districts
-        self.player_manager = self.game.player_manager
+        self.spymaster = None
+        self.district_manager = None
+        self.player_manager = None
+        self.game_setup = None
+
+        self.game_setup = GameSetup(self.num_players, self.num_districts, self.screen_size)
+        self.districts = self.game_setup.district_manager.districts
+        self.player_manager = self.game_setup.player_manager
+        self.spymaster = self.game_setup.spymaster
         self.current_player = self.player_manager.players[0]
         self.redraw_UI()
     
@@ -118,28 +124,24 @@ class UI(Widget):
             self.add_widget(district_widget)
         for district in self.districts:
             label_widget = DistrictLabel(district, self.map_border, self.transform_coordinates)
+            label_widget.update_label() 
             if hasattr(self, f'label_widget_{district.id}') and getattr(self, f'label_widget_{district.id}').parent:
                 self.remove_widget(getattr(self, f'label_widget_{district.id}'))
             setattr(self, f'label_widget_{district.id}', label_widget)
             self.add_widget(label_widget)
 
     def show_main_menu(self, district):
-        print(f"The UI's size is showing in show_main_menu as {self.size}")
         self.main_menu.size = (self.screen_size[0] / 2, self.screen_size[1] / 2)  # Fixed size
-        print(f"Prior to setting the main menu pos is {self.main_menu.pos}")
         self.main_menu.pos = (640, 360)
-        print(f"Main Menu pos is set in show_main_menu; {self.main_menu.pos[0]},{self.main_menu.pos[1]}")
-        print(f"Main Menu size in show_main_menu; {self.main_menu.size[0]},{self.main_menu.size[1]}")
         self.main_menu.set_selected_district(district)
+        self.main_menu.set_indicator_color()
         self.main_menu.update_action_buttons()  # Update action buttons every time
         self.main_menu.update_general_info_labels()  # Update labels every time
         self.main_menu.add_side_buttons()  # Update side buttons every time
 
         if not self.main_menu_popup.content:
             self.main_menu_popup.content = self.main_menu
-        print(f"Before Popup open - MainMenu size: {self.main_menu.size}, position: {self.main_menu.pos}")
         self.main_menu_popup.open()
-        print(f"After Popup open - MainMenu size: {self.main_menu.size}, position: {self.main_menu.pos}")
 
     def setup_map_elements(self):
         self.map_border_widget = MapBorder(self.map_border)

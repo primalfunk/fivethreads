@@ -7,5 +7,5 @@ class Spy:
         self.level = 1 # spies can have their levels raised by collecting enough experience
         self.total_ap = 1
         self.experience = 0 # collect experience by performing a variety of spy actions
-        self.type = 'surviver' # the default spy type of four, a swiss army knife of function depending on the context
+        self.type = 'living' # the default spy type of five, a swiss army knife of function depending on the context
 
