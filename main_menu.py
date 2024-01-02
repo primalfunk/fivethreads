@@ -1,155 +1,285 @@
+from action_manager import ActionManager
+from kivy.animation import Animation
 from kivy.app import App
-from kivy.clock import Clock
-from kivy.core.window import Window
-from kivy.graphics import Color, Line, Mesh, Rectangle
-from kivy.uix.widget import Widget
-from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.button import Button
+from kivy.uix.relativelayout import RelativeLayout
+from kivy.uix.image import Image
 from kivy.uix.label import Label
-from kivy.uix.popup import Popup
-from kivy.uix.scrollview import ScrollView
-from kivy.graphics import Color, Line
-from modern_button import ModernButton
+from kivy.uix.behaviors import ButtonBehavior
+from kivy.uix.widget import Widget
+from kivy.graphics import Color, Ellipse, Rectangle
+from kivy.core.text import LabelBase
+from kivy.core.window import Window
+from kivy.clock import Clock
+from kivy.utils import get_color_from_hex
 
-class MainMenu(BoxLayout):
+# Register the custom font
+LabelBase.register(name='Play', fn_regular='fonts/play.ttf')
+
+class MainMenu(RelativeLayout):
     def __init__(self, ui, district, districts, **kwargs):
-        super().__init__(**kwargs)
+        super(MainMenu, self).__init__(**kwargs)
         self.ui = ui
-        self.popup = None
-        self.graphics_ready = False
+        self.pos = (self.ui.screen_width / 4, self.ui.screen_height / 4)
+        self.size = (ui.screen_width / 2, ui.screen_height / 2)
+        print(f"MainMenu initialized with size: {self.size} and position: {self.pos}")
         self.districts = districts
-        if district is not None:
-            self.selected_district = district
-        else:
-            self.selected_district = self.districts[0] # default to some specific district
-        self.orientation = 'vertical'
-        self.padding = 10
-        self.spacing = 10
+        self.selected_district = district if district is not None else districts[0]
+        self.action_manager = ActionManager(self.ui.current_player, self.districts)
+        self.general_info_labels = []
+        self.action_buttons = []
+        self.side_buttons = []
         
-        self.bind(size=self.update_graphics, pos=self.update_graphics)
+        self.width, self.height = self.size
+        self.x, self.y = self.pos
+        self.background_image = Image(source='images/menu.png', allow_stretch=True, size=self.size)
+        self.base_color_rect = (0, 0, 0)
+        self.add_widget(self.background_image)
         Clock.schedule_once(self.setup_layout)
+    
+    def setup_layout(self, *args):
+        self.update_general_info_labels()  # Create or update general info labels
+        self.update_action_buttons()  # Create or update action buttons
+        self.add_side_buttons()  # Create side buttons
 
     def set_selected_district(self, district):
-            self.selected_district = district
-            self.populate_general_info()  
+        self.selected_district = district
+        self.update_general_info_labels()  # Update labels for the new district
+        self.update_action_buttons()
 
-    def dismiss_popup(self, instance):
-        if self.popup:
-            self.popup.dismiss()
+    def get_available_actions_for_district(self, district):
+        return self.action_manager.get_actions_for_district(district)
 
-    def check_graphics_update(self):
-        if not self.graphics_ready:
-            self.graphics_ready = True
-            Clock.schedule_once(self._update_graphics, 0.1)
+    def update_general_info_labels(self):
+        for label in self.general_info_labels:
+            self.remove_widget(label)
+        self.general_info_labels = []
+        text_area_x = self.width * 0.04  # 3% from the left edge of the MainMenu
+        text_area_y = self.height * 0.38  # 38% from the bottom of the MainMenu
+        text_area_width = self.width * 0.82  # 82% of the MainMenu's width
+        text_area_height = self.height * 0.11  # 11% of the MainMenu's height
+        num_columns = 3  # Three columns
+        num_rows = 2  # Two rows of labels
+        label_width = text_area_width / num_columns
+        label_height = text_area_height / (num_rows * 2)  # Times 2 for key-value pairs
+        start_y = text_area_y + (self.height / 2) - label_height
+        district_info = [
+            ("Name", self.selected_district.name),
+            ("ID", self.selected_district.id),
+            ("Owner", self.selected_district.owner.name if self.selected_district.owner else 'Neutral'),
+            ("Spy Network Level", self.selected_district.level),
+            ("Gold", self.selected_district.gold),
+            ("Intel", self.selected_district.intel)
+        ]
+        for index, (key, value) in enumerate(district_info):
+            col = index % num_columns
+            row = (index // num_columns) * 2  # Multiply by 2 for each key-value pair
+            pos_x = text_area_x + (label_width * col)
+            pos_key_y = start_y - (row * label_height)
+            pos_value_y = pos_key_y - label_height
+            key_label = Label(
+                text=f"{key}:",
+                pos=(pos_x, pos_key_y),
+                size_hint=(None, None),
+                size=(label_width, label_height),
+                text_size=(label_width, None),
+                font_name='Play',
+                color=get_color_from_hex('#00FF00'),
+                valign='middle',
+                halign='left'
+            )
+            self.add_widget(key_label)
+            self.general_info_labels.append(key_label)
+            value_label = Label(
+                text=str(value),
+                pos=(pos_x, pos_value_y),
+                size_hint=(None, None),
+                size=(label_width, label_height),
+                text_size=(label_width, None),
+                font_name='Play',
+                color=get_color_from_hex('#00FF00'),
+                valign='middle',
+                halign='left'
+            )
+            self.add_widget(value_label)
+            self.general_info_labels.append(value_label)
 
-    def setup_layout(self, dt):
-        self.general_info_layout = BoxLayout(orientation='horizontal', size_hint=(1, 0.25))
-        self.central_layout = BoxLayout(orientation='horizontal', size_hint=(1, 0.5))
-        self.system_layout = BoxLayout(orientation='horizontal', size_hint=(1, 0.25))
+    def update_action_buttons(self):
+        for btn in self.action_buttons:
+            self.remove_widget(btn)
+        self.action_buttons.clear()
+        # Consistently calculate action area height and y-position
+        action_area_x = self.width * 0.0341
+        action_area_y = self.height * 0.032
+        action_area_height = self.height * 0.559
+        action_button_x = action_area_x
+        action_button_height = action_area_height * 0.1
+        selected_color = (0.678, 0.847, 1, 1)  # Light blue
+        unselected_color = (0.25, 0.25, 0.25, 1)  # Dark gray
+        available_actions = self.get_available_actions_for_district(self.selected_district)
+        base_action_text = "Available actions:" if available_actions else "No available actions"
+        base_action_button = Button(
+            text=base_action_text,
+            size_hint=(None, None),
+            size=(self.width * 0.795, action_button_height),
+            pos=(action_button_x, action_area_y + action_area_height - action_button_height),
+            background_color=unselected_color
+        )
+        self.add_widget(base_action_button)
+        self.action_buttons.append(base_action_button)
+        if available_actions:
+            for index, action in enumerate(available_actions):
+                action_button_y = action_area_y + action_area_height - (index + 2) * action_button_height
+                action_button = ToggleButton(
+                    text=action,
+                    selected_color=selected_color,
+                    unselected_color=unselected_color,
+                    pos=(action_button_x + 1, action_button_y),
+                    size_hint=(None, None),
+                    size=(self.width * 0.794, action_button_height)
+                )
+                print(f"Action button {index} position: {action_button.pos}")
+                action_button.bind(on_release=self.handle_action_button_press)
+                self.add_widget(action_button)
+                self.action_buttons.append(action_button)
 
-        self.add_widget(self.general_info_layout)
-        self.add_widget(self.central_layout)
-        self.add_widget(self.system_layout)
-        # Print layout sizes and positions after setup
-        print("General Info Layout:", self.general_info_layout.size, self.general_info_layout.pos)
-        print("Central Layout:", self.central_layout.size, self.central_layout.pos)
-        print("System Layout:", self.system_layout.size, self.system_layout.pos)
-        
-        self.populate_general_info()
-        self.populate_system_area()
-    
-    def populate_general_info(self):
-        self.general_info_layout.clear_widgets()  # Clear existing widgets
-        self.general_info_layout.size_hint_y = None
-        self.general_info_layout.height = self.ui.screen_height // 10
-        self.general_info_layout.pos_hint = {'top': 0.9}
-
-        if self.selected_district:
-            # Check if owner is not None before accessing its name
-            owner_name = self.selected_district.owner.name if self.selected_district.owner else "Neutral"
-            spy_network_level = self.selected_district.level
-            self.general_info_layout.add_widget(Label(text=f"District ID: {self.selected_district.id}"))
-            self.general_info_layout.add_widget(Label(text=f"District Name: {self.selected_district.name}"))
-            self.general_info_layout.add_widget(Label(text=f"Owner: {owner_name}"))
-            self.general_info_layout.add_widget(Label(text=f"Spy Network Level: {spy_network_level}"))
-            self.general_info_layout.add_widget(Label(text=f"Gold: {self.selected_district.gold}"))
-            self.general_info_layout.add_widget(Label(text=f"Intel: {self.selected_district.intel}"))
-            print("Populated General Info with Widgets")
-    
-    def populate_system_area(self):
-        self.system_layout.clear_widgets()
-        self.system_layout.size_hint_y = None
-        self.system_layout.height = self.ui.screen_height // 20
-        button_width_hint = 0.25
-        empty_widget_width_hint = (1/3 - button_width_hint / 2)
-        self.system_layout.add_widget(Widget(size_hint_x=empty_widget_width_hint))
-        self.system_layout.add_widget(ModernButton(text="Options", size_hint=(button_width_hint, None), height=30, pos_hint={'center_y': 0.5}))
-        self.system_layout.add_widget(Widget(size_hint_x=empty_widget_width_hint * 2))
-        close_button = ModernButton(text="Close", size_hint=(button_width_hint, None), height=30, pos_hint={'center_y': 0.5})
-        close_button.bind(on_press=self.dismiss_popup)
-        self.system_layout.add_widget(close_button)
-        self.system_layout.add_widget(Widget(size_hint_x=empty_widget_width_hint))
-
-    def populate_central_area(self, action_manager, selected_district):
-        self.central_layout.clear_widgets()  # Clear existing widgets
-
-        # Define padding and spacing values
-        padding_value = 10  # Space around the edges inside the BoxLayout
-        spacing_value = 15  # Space between the buttons
-
-        # Create a BoxLayout for buttons inside the ScrollView
-        button_layout = BoxLayout(orientation='vertical', size_hint_y=None, spacing=spacing_value, padding=[padding_value, padding_value, padding_value, 0])
-        button_layout.bind(minimum_height=button_layout.setter('height'))
-
-        # Get actions and populate buttons
-        actions = action_manager.get_actions_for_district(selected_district)
-        if not actions:
-            # Add a button indicating no valid actions
-            no_action_button = Button(text="No valid actions", size_hint=(1, None), height=40, disabled=True)
-            button_layout.add_widget(no_action_button)
-        else:
-            # Add a title button for district actions
-            title_button = Button(text="District Actions", size_hint=(1, None), height=40, disabled=True)
-            button_layout.add_widget(title_button)
-
-            for action in actions:
-                button = Button(text=action, size_hint=(1, None), height=40)
-                button_layout.add_widget(button)
-
-        # Create a ScrollView and add the button layout to it
-        scroll_view = ScrollView(size_hint=(1, 1), do_scroll_x=False)
-        scroll_view.add_widget(button_layout)
-
-        # Add ScrollView to the central layout
-        self.central_layout.add_widget(scroll_view)
+    def add_side_buttons(self):
+        circular_button_diameter = self.height * 0.0857  # 8.57% of the menu's height
+        circular_button_x = self.width * 0.905  # 90.5% of the menu's width
+        unpressed_color = (0.5, 0.5, 0.5, 0.2)
+        colors = {"red": (1, 0, 0, 1),
+                  "yellow": (1, 1, 0, 1),
+                  "blue": (0, 0.2, 1, 1)}
+        circular_button_ys = [
+            (self.height * 0.723, "blue"),
+            (self.height * 0.566, "yellow"),
+            (self.height * 0.221, "red")
+        ]
+        self.side_buttons = []
+        for y, color in circular_button_ys:
+            button = CircularButton(
+                pressed_color=colors[color],
+                unpressed_color=unpressed_color,
+                pos=(circular_button_x - circular_button_diameter / 2, y - circular_button_diameter / 2),
+                size_hint=(None, None),
+                size=(circular_button_diameter, circular_button_diameter)
+            )
+            self.add_widget(button)
+            self.side_buttons.append(button)
+        self.base_color_rect = (1, 0.647, 0, 1) 
+        rect_button_width = self.width * 0.065  # 6.5% of the menu's width
+        rect_button_height = self.height * 0.04  # 4% of the menu's height
+        rect_button_x = self.width * 0.873  # 87.3% of the menu's width
+        rect_button_y = self.height * 0.883 - rect_button_height  # 88.3% of the menu's height
+        # Create and position the rectangular button
+        rect_button = RectangularButton(
+            base_color=self.base_color_rect,
+            pos=(rect_button_x, rect_button_y),
+            size_hint=(None, None),
+            size=(rect_button_width, rect_button_height)
+        )
+        self.add_widget(rect_button)
+        self.side_buttons.append(rect_button)
 
     def update_graphics(self, *args):
-        # Schedule the update after a short delay
-        Clock.schedule_once(self._update_graphics, 0.1)
-    
-    def _update_graphics(self, *args):
-        print("Executing _update_graphics")
-        self.canvas.after.clear()
-        with self.canvas.after:
-            # Background colors
-            Color(1, 0, 0, 0.5)  # Red semi-transparent background for general_info_layout
-            Rectangle(pos=self.general_info_layout.pos, size=self.general_info_layout.size)
-            
-            Color(0, 0, 1, 0.5)  # Blue semi-transparent background for system_layout
-            Rectangle(pos=self.system_layout.pos, size=self.system_layout.size)
+        # This method could be used for any custom drawing or updates needed
+        # Currently, it's empty and can be implemented if needed
+        pass
 
-            # Section borders
-            Color(0.6, 0.6, 0.6, 1)  # Adjust color as needed
-            self.draw_section_border(self.central_layout)
-            self.draw_section_border(self.system_layout)
-        print("Updated Graphics - Drawing backgrounds and borders")
+    def handle_action_button_press(self, instance):
+        for button in self.action_buttons:
+            if button != instance:
+                button.is_selected = False
+        instance.toggle()
 
-    def draw_section_border(self, section_widget):
-        with self.canvas.after:
-            Color(0.6, 0.6, 0.6, 1)  # Adjust color as needed
-            Line(rectangle=(section_widget.x, section_widget.y, section_widget.width, section_widget.height), width=1.5)
+    def perform_action(self, instance):
+        action = instance.text
+        print(f"Performing {action} on {self.selected_district.name}")
 
-    def update_actions(self, action_manager, selected_district):
-        print(f"Called mainmenu.update_actions()")
-        self.selected_district = selected_district
-        self.populate_central_area(action_manager, selected_district)
+
+class CircularButton(ButtonBehavior, Widget):
+    circle = None
+    def __init__(self, pressed_color, unpressed_color, **kwargs):
+        super().__init__(**kwargs)
+        self.pressed_color = pressed_color
+        self.unpressed_color = unpressed_color
+
+        # Draw the initial circle with the unpressed color
+        with self.canvas:
+            Color(*self.unpressed_color)
+            self.circle = Ellipse(size=self.size, pos=self.pos)
+
+    def on_press(self):
+        self.canvas.before.clear()
+        with self.canvas.before:
+            Color(*self.pressed_color)
+            Ellipse(pos=self.pos, size=self.size)
+
+    def on_release(self):
+        self.canvas.before.clear()
+        with self.canvas.before:
+            Color(*self.unpressed_color)
+            Ellipse(pos=self.pos, size=self.size)
+
+    def on_size(self, *args):
+        # Update the circle size
+        if self.circle:
+            self.circle.size = self.size
+
+    def on_pos(self, *args):
+        # Update the circle position
+        if self.circle:
+            self.circle.pos = self.pos
+
+
+class RectangularButton(Widget):
+    rect = None
+    def __init__(self, base_color, **kwargs):
+        super().__init__(**kwargs)
+        self.base_color = base_color
+        self.dimmed_color = [c * 0.5 for c in self.base_color]  # Dim the color to 50%
+        with self.canvas:
+            self.color_instruction = Color(*self.base_color)
+            self.rect = Rectangle(size=self.size, pos=self.pos)
+        self.start_animation()
+
+    def start_animation(self):
+        # Create an animation that smoothly transitions the color
+        anim = Animation(rgba=self.dimmed_color, duration=1) + Animation(rgba=self.base_color, duration=1)
+        anim.repeat = True  # Repeat the animation indefinitely
+        anim.start(self.color_instruction)
+
+    def on_size(self, *args):
+        if self.rect:
+            self.rect.size = self.size
+
+    def on_pos(self, *args):
+        if self.rect:
+            self.rect.pos = self.pos
+
+
+class ToggleButton(Button):
+    rect = None
+    def __init__(self, selected_color, unselected_color, **kwargs):
+        super().__init__(**kwargs)
+        self.selected_color = selected_color
+        self.unselected_color = unselected_color
+        self.background_normal = ''  # Removes default styling
+        self.background_color = self.unselected_color
+        self.is_selected = False
+
+    def on_press(self):
+        self.toggle()
+
+    def toggle(self):
+        self.is_selected = not self.is_selected
+        new_color = self.selected_color if self.is_selected else self.unselected_color
+        self.background_color = new_color
+
+    def on_size(self, *args):
+        if self.rect:
+            self.rect.size = self.size
+
+    def on_pos(self, *args):
+        if self.rect:
+            self.rect.pos = self.pos

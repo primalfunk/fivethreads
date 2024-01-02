@@ -1,6 +1,5 @@
 class GameState:
     def __init__(self, player_manager, district_manager, spymaster):
-        print(f"Initialized game state")
         self.player_manager = player_manager
         self.district_manager = district_manager
         self.spymaster = spymaster
@@ -8,12 +7,10 @@ class GameState:
         self.current_player_index = 0  # Start with the first player
         self.turn_number = 1
         self.round = 1 # a round passes when every player has taken their turn once
-        print(f"{len(self.player_manager.players)} players, {len(self.district_manager.districts)} districts, {len(self.spymaster.spies)} spies")
         print(f"Turn number {self.turn_number} of round {self.round} - this is {self.player_manager.players[self.current_player_index].name}'s turn.")
 
     def next_turn(self):
         # Logic to advance to the next player's turn
-        print(f"Player index is 'next player index' ({self.current_player_index + 1}) % 'total player count' ({len(self.player_manager.players)})")
         self.current_player_index = (self.current_player_index + 1) % len(self.player_manager.players)
         if self.current_player_index == 0:
             self.turn_number += 1

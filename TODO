@@ -1,6 +1,13 @@
 12.27 - Big improvement to city name generation logic, we now pull from a list of real counties in realworld data and use the names of the cities within that county. Very broad range of countries included. Fixed districts not getting colors.
 12.30 - Massive overhaul to the UI with some fresh graphics and animations
+1.1 (2024) - integrated the graphic 'menu', worked through a lot of placement issues
 
 TODO
+- Finish the Create Spy action
+- Add logic to display the overall count of spies by type; generate spy icons for each type of 5
+- Work in population logic
+
+- Add AI Moves
 - Clicking and dragging into a different district should not change the selected district for touch up (UI)
-- Finish the Create Spy
+- Add music
+

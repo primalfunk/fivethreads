@@ -1,6 +1,7 @@
 from action_manager import ActionManager
 from kivy.uix.floatlayout import FloatLayout
 from kivy.animation import Animation
+from kivy.uix.button import Button
 from kivy.uix.widget import Widget
 from kivy.uix.image import Image
 from kivy.clock import Clock
@@ -12,6 +13,7 @@ from kivy.uix.popup import Popup
 from main_menu import MainMenu
 from map_tools import Border, MapBorder, DistrictLabel, DistrictWidget, NonClickableImage
 import numpy as np
+from setup import GameSetup
 from shapely.geometry import Point
 
 class UI(Widget):
@@ -22,20 +24,39 @@ class UI(Widget):
         self.screen_width, self.screen_height = self.screen_size
         self.map_border = self.create_map_border()
         self.player_manager = player_manager
-        self.current_player = self.player_manager.players[0] 
+        self.num_districts = 40
+        self.num_players = len(self.player_manager.players)
+        self.current_player = self.player_manager.players[0]
+        self.reset_button = Button(
+            text="Reset",
+            size_hint=(None, None),
+            size=(100, 50),
+            pos=(10, 10)
+        )
+        self.reset_button.bind(on_press=self.reset_game)
+        self.add_widget(self.reset_button)
+        # Initialize MainMenu with a fixed size
         self.main_menu = MainMenu(self, self.current_player.owned_districts[0], self.districts)
+        self.main_menu.size = (self.screen_size[0] / 2, self.screen_size[1] / 2)  # Fixed size
+        print(f"Main Menu size is set at init to screen_width / 2, screen_height / 2; [{self.screen_size[0] / 2},{self.screen_size[1]} / 2]")
+        # Initialize Popup once with the same size as MainMenu
+        self.main_menu_popup = Popup(
+            title="",
+            separator_height=0,
+            content=self.main_menu,
+            size_hint=(None, None),
+            size=(self.screen_size[0] / 2, self.screen_size[1] / 2),
+            pos_hint={'x': 0.25, 'y': 0.25}
+        )
         Clock.schedule_once(self.setup_backgrounds)
-
-    def setup_map_elements(self):
-        self.map_border_widget = MapBorder(self.map_border)
-        self.add_widget(self.map_border_widget)
-
-        for district in self.districts:
-            district_widget = DistrictWidget(district, self.map_border, self.shrink_polygons)
-            self.add_widget(district_widget)
-
-            label_widget = DistrictLabel(district, self.map_border)
-            self.add_widget(label_widget)
+   
+    def reset_game(self, instance):
+        self.num_districts = 40
+        self.game = GameSetup(self.num_players, self.num_districts, self.screen_size)
+        self.districts = self.game.district_manager.districts
+        self.player_manager = self.game.player_manager
+        self.current_player = self.player_manager.players[0]
+        self.redraw_UI()
     
     def setup_backgrounds(self, dt):
         self.setup_skies()
@@ -51,10 +72,9 @@ class UI(Widget):
         self.animate_skies()
 
     def animate_skies(self):
-            # Animate to move right
-            anim = Animation(x=0, duration=550)  # Adjust the duration as needed
-            anim.bind(on_complete=self.reset_skies_position)
-            anim.start(self.skies_img)
+        anim = Animation(x=0, duration=550)  # Adjust the duration as needed
+        anim.bind(on_complete=self.reset_skies_position)
+        anim.start(self.skies_img)
 
     def reset_skies_position(self, instance, value):
         self.skies_img.pos = (-self.screen_width * 3, 0)  # Reset to initial position
@@ -83,37 +103,54 @@ class UI(Widget):
         self.add_widget(self.map_back_img)
 
     def redraw_UI(self):
-        # Remove and re-add the map border widget if it exists
+        if hasattr(self, 'reset_button') and self.reset_button.parent:
+            self.remove_widget(self.reset_button)
         if hasattr(self, 'map_border_widget') and self.map_border_widget.parent:
             self.remove_widget(self.map_border_widget)
         self.map_border_widget = MapBorder(self.map_border)
         self.add_widget(self.map_border_widget)
-
-        # Assuming DistrictWidget and DistrictLabel manage their own drawing and updates
+        self.add_widget(self.reset_button)
         for district in self.districts:
             district_widget = DistrictWidget(district, self.map_border, self.shrink_polygons, self.transform_coordinates, self.create_mesh_data)
-            label_widget = DistrictLabel(district, self.map_border, self.transform_coordinates)
-            
-            # Remove existing widgets for the district if they exist
             if hasattr(self, f'district_widget_{district.id}') and getattr(self, f'district_widget_{district.id}').parent:
                 self.remove_widget(getattr(self, f'district_widget_{district.id}'))
+            setattr(self, f'district_widget_{district.id}', district_widget)
+            self.add_widget(district_widget)
+        for district in self.districts:
+            label_widget = DistrictLabel(district, self.map_border, self.transform_coordinates)
             if hasattr(self, f'label_widget_{district.id}') and getattr(self, f'label_widget_{district.id}').parent:
                 self.remove_widget(getattr(self, f'label_widget_{district.id}'))
-            
-            # Add new widgets for the district
-            setattr(self, f'district_widget_{district.id}', district_widget)
             setattr(self, f'label_widget_{district.id}', label_widget)
-            self.add_widget(district_widget)
             self.add_widget(label_widget)
 
     def show_main_menu(self, district):
-        action_manager = ActionManager(self.current_player, self.districts)
-        self.main_menu.update_actions(action_manager, district)
-        if self.main_menu.parent:
-            self.main_menu.parent.remove_widget(self.main_menu)
-        popup = Popup(title="", separator_height=0, content=self.main_menu, size_hint=(None, None), size=(self.screen_size[0] / 2, self.screen_size[1] / 2))
-        self.main_menu.popup = popup
-        popup.open()
+        print(f"The UI's size is showing in show_main_menu as {self.size}")
+        self.main_menu.size = (self.screen_size[0] / 2, self.screen_size[1] / 2)  # Fixed size
+        print(f"Prior to setting the main menu pos is {self.main_menu.pos}")
+        self.main_menu.pos = (640, 360)
+        print(f"Main Menu pos is set in show_main_menu; {self.main_menu.pos[0]},{self.main_menu.pos[1]}")
+        print(f"Main Menu size in show_main_menu; {self.main_menu.size[0]},{self.main_menu.size[1]}")
+        self.main_menu.set_selected_district(district)
+        self.main_menu.update_action_buttons()  # Update action buttons every time
+        self.main_menu.update_general_info_labels()  # Update labels every time
+        self.main_menu.add_side_buttons()  # Update side buttons every time
+
+        if not self.main_menu_popup.content:
+            self.main_menu_popup.content = self.main_menu
+        print(f"Before Popup open - MainMenu size: {self.main_menu.size}, position: {self.main_menu.pos}")
+        self.main_menu_popup.open()
+        print(f"After Popup open - MainMenu size: {self.main_menu.size}, position: {self.main_menu.pos}")
+
+    def setup_map_elements(self):
+        self.map_border_widget = MapBorder(self.map_border)
+        self.add_widget(self.map_border_widget)
+
+        for district in self.districts:
+            district_widget = DistrictWidget(district, self.map_border, self.shrink_polygons)
+            self.add_widget(district_widget)
+
+            label_widget = DistrictLabel(district, self.map_border)
+            self.add_widget(label_widget)
 
     def create_map_border(self):
         screen_width, screen_height = self.screen_size
@@ -121,12 +158,6 @@ class UI(Widget):
         x = (screen_width - border_width) / 2
         y = (screen_height - border_height) / 2
         return Border(x, y, border_width, border_height)
-
-    def draw_map_border(self):
-        with self.canvas.after:
-            Color(1, 1, 1)
-            Line(rectangle=(self.map_border.x, self.map_border.y, 
-                            self.map_border.width, self.map_border.height), width=2)
 
     def transform_coordinates(self, coords, border_x, border_y, border_width, border_height):
         screen_width, screen_height = self.screen_size
@@ -136,7 +167,14 @@ class UI(Widget):
             scaled_y = (y / screen_height) * border_height + border_y
             transformed_coords.extend([scaled_x, scaled_y])
         return transformed_coords
-    
+
+    def reverse_transform_coordinates(self, touch_pos):
+        touch_x, touch_y = touch_pos
+        border_x, border_y, border_width, border_height = self.map_border.x, self.map_border.y, self.map_border.width, self.map_border.height
+        scaled_x = (touch_x - border_x) / border_width * self.screen_size[0]
+        scaled_y = (touch_y - border_y) / border_height * self.screen_size[1]
+        return scaled_x, scaled_y
+
     def shrink_polygons(self, coords, shrink_percentage=0.004):
         centroid_x, centroid_y = np.mean(coords, axis=0)
         shrunk_coords = []
@@ -185,13 +223,6 @@ class UI(Widget):
             if district.polygon.contains(transformed_touch_point):
                 return district
         return None
-
-    def reverse_transform_coordinates(self, touch_pos):
-        touch_x, touch_y = touch_pos
-        border_x, border_y, border_width, border_height = self.map_border.x, self.map_border.y, self.map_border.width, self.map_border.height
-        scaled_x = (touch_x - border_x) / border_width * self.screen_size[0]
-        scaled_y = (touch_y - border_y) / border_height * self.screen_size[1]
-        return scaled_x, scaled_y
 
     def change_district_color(self, district, new_color):
         district.touched_color = district.color  # Store the original color

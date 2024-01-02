@@ -16,5 +16,3 @@ class GameSetup:
         self.spymaster = SpyMaster(self.players, self.district_manager.districts)
         
         self.game_state = GameState(self.player_manager, self.district_manager, self.spymaster)
-
-    

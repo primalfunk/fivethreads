@@ -1,3 +1,4 @@
+import colorsys
 from district import District
 import itertools
 import json
@@ -20,6 +21,65 @@ class DistrictManager:
         # need the Player objects to finish with color assignment
         self.assign_initial_districts()
         self.assign_colors_to_districts()
+
+    def refresh_district_colors(self):
+        for district in self.districts:
+            if district.owner is None:
+                district.color = district.dilute_color()
+            else:
+                player = district.owner
+                district.color = self.dilute_player_color(player.base_color, player, self.players)
+
+    def assign_colors_to_districts(self):
+        player_color_pairs = self.generate_player_colors(self.num_players)
+        
+        # Assign each player a unique color pair
+        for player, color_pair in zip(self.players, player_color_pairs):
+            player.base_color, player.border_color = color_pair
+
+        for district in self.districts:
+            if district.owner is None:
+                base_color = district.generate_base_color()
+                scaled_color = district.dilute_color()
+                self.set_district_color(district, scaled_color, (0.7, 0.7, 0.7))
+            else:
+                player = district.owner
+                player_color = self.dilute_player_color(player.base_color, player, self.players)
+                self.set_district_color(district, player_color, player.border_color)
+
+    def set_district_color(self, district, background_color, border_color):
+        district.color = background_color
+        district.border_color = border_color
+
+    def dilute_player_color(self, player_color, player, all_players):
+        max_resources = max(player.total_resources() for player in all_players)
+
+        # Ensure max_resources is at least 1 to avoid division by zero
+        max_resources = max(1, max_resources)
+
+        # Calculate resource percentage and ensure it's between 0 and 1
+        resource_percentage = player.total_resources() / max_resources
+        resource_percentage = max(0, min(resource_percentage, 1))
+
+        # Apply dilution to the RGB components of the color
+        diluted_color = tuple(resource_percentage * component for component in player_color)
+        
+        # Ensure color values are within the range 0 to 1
+        diluted_color = tuple(min(max(component, 0), 1) for component in diluted_color)
+
+        return diluted_color
+
+    def generate_player_colors(self, num_players):
+        hue_step = 1.0 / num_players
+        player_colors = []
+        for i in range(num_players):
+            hue = i * hue_step
+            saturation = 0.7  # Fixed saturation for distinct colors
+            lightness = 0.5   # Fixed lightness
+            background_color = colorsys.hls_to_rgb(hue, lightness, saturation)
+            border_color = colorsys.hls_to_rgb(hue, lightness, 1)  # Full brightness for border
+            player_colors.append((background_color, border_color))
+        return player_colors
 
     def calculate_distance(self, district1, district2):
         x1, y1 = district1.polygon.centroid.coords[0]
@@ -49,7 +109,6 @@ class DistrictManager:
         return edge_districts
 
     def assign_initial_districts(self):
-        print(f"called assign_initial_districts")
         initial_districts = self.select_initial_owned_districts(len(self.players))
         for player, district in zip(self.players, initial_districts):
             player.add_owned_district(district)
@@ -59,12 +118,6 @@ class DistrictManager:
         width, height = self.screen_size
         voronoi_polygons = MapGenerator.generate_voronoi_polygons(width, height, self.num_districts)
         return [District(i + 68, polygon) for i, polygon in enumerate(voronoi_polygons)]
-
-    def generate_district_stats(self):
-        for district in self.districts:
-            district.population = random.randint(1000, 20000)
-            district.gold = district.population // 11 + random.randint(-9, 9)
-            district.intel = int(district.gold * 1.5 + random.randint(-9, 9))
     
     def load_county_data(self):
         with open('json/counties.json', 'r', encoding='utf-8') as file:
@@ -133,7 +186,6 @@ class DistrictManager:
     def select_initial_owned_districts(self, num_players):
         edge_districts = self.identify_edge_districts()
         selected_districts = [random.choice(edge_districts)]
-        print(f"Initial edge district selected: {selected_districts[0].id}")
 
         while len(selected_districts) < num_players:
             suitable_candidates = [d for d in self.districts if self.is_at_least_n_hops_away(d, selected_districts)]
@@ -141,46 +193,22 @@ class DistrictManager:
             if suitable_candidates:
                 best_candidate = random.choice(suitable_candidates)
                 selected_districts.append(best_candidate)
-                print(f"Selected District {best_candidate.id}")
             else:
-                print("No suitable candidate found. Consider revising the logic or input data.")
                 break
 
         # Print selected districts and their neighbors
         for district in selected_districts:
             neighbors = ', '.join(str(neighbor_id) for neighbor_id in district.neighbors)
-            print(f"Player District {district.id}: Neighbors = {neighbors}")
 
         return selected_districts
 
-    def calculate_path_length(self, start_district, end_district):
-        # Initialize a queue for BFS and a set to track visited districts
-        queue = [(start_district, 0)]  # Each element is a tuple (district, distance)
-        visited = set()
 
-        while queue:
-            current_district, distance = queue.pop(0)
 
-            # Check if we have reached the end district
-            if current_district.id == end_district.id:
-                return distance
-
-            # Mark the current district as visited
-            visited.add(current_district.id)
-
-            # Add unvisited neighbors to the queue
-            for neighbor_id in current_district.neighbors:
-                # Check if neighbor_id is a valid index in self.districts
-                if neighbor_id >= 0 and neighbor_id < len(self.districts):
-                    neighbor_district = self.districts[neighbor_id]
-                    if neighbor_district.id not in visited:
-                        queue.append((neighbor_district, distance + 1))
-                else:
-                    # Handle invalid neighbor_id, possibly log a warning or error
-                    print(f"Warning: Invalid neighbor ID {neighbor_id} for district ID {current_district.id}")
-
-        # Return a large number if no path is found
-        return float('inf')
+    def generate_district_stats(self):
+        for district in self.districts:
+            district.population = random.randint(1000, 10000)
+            district.gold = 125 + random.randint(0, 110)
+            district.intel = 125 + random.randint(0, 110)
 
     def calculate_total_neighbors(self, district_combination):
         total_neighbors = 0
@@ -188,58 +216,4 @@ class DistrictManager:
             for other_district in district_combination[i+1:]:
                 neighbor_union = len(set(district.neighbors).union(set(other_district.neighbors)))
                 total_neighbors += neighbor_union
-                print(f"Districts {district.id} and {other_district.id} have {neighbor_union} neighbors in total.")
         return total_neighbors
-
-    def assign_colors_to_districts(self):
-        player_colors = self.generate_player_colors(self.num_players)
-        color_palette = self.generate_color_palette(len(self.districts))
-
-        for district in self.districts:
-            if district.owner is None:
-                color_scheme = random.choice(color_palette)
-                self.set_district_color(district, color_scheme["background"], color_scheme["border"])
-                color_palette.remove(color_scheme)
-            else:
-                player_color = random.choice(player_colors)
-                complementary_color = self.find_complementary(player_color)
-                self.set_district_color(district, player_color, complementary_color)
-                player_colors.remove(player_color)
-
-    def generate_color_pairs(self):
-        primary_colors = [(1, 0, 0), (0, 1, 0), (0, 0, 1)]  # Red, Green, Blue
-        secondary_colors = [(0, 1, 1), (1, 0, 1), (1, 1, 0)]  # Cyan, Magenta, Yellow
-        tertiary_colors = [(1, 0.5, 0), (0.5, 1, 0), (0, 1, 0.5), (0, 0.5, 1), (0.5, 0, 1), (1, 0, 0.5)]  # Orange, Chartreuse, Spring Green, Azure, Violet, Rose
-        all_colors = primary_colors + secondary_colors + tertiary_colors
-        color_pairs = []
-        for color in all_colors:
-            complementary_color = self.find_complementary(color)
-            color_pairs.append((color, complementary_color))
-
-        return color_pairs
-
-    def generate_player_colors(self, num_players):
-        color_pairs = self.generate_color_pairs()
-        player_colors = []
-        for i in range(num_players):
-            player_color, _ = color_pairs[i]
-            player_colors.append(player_color)
-        return player_colors
-
-    def generate_color_palette(self, num_colors):
-        def generate_light_color():
-            return (random.uniform(0.7, 1), random.uniform(0.7, 1), random.uniform(0.7, 1), 1)
-
-        def darken_color(color):
-            return tuple(max(component - 0.2, 0) for component in color[:-1]) + (1,)
-
-        return [{"background": generate_light_color(), "border": (0.8, 0.8, 0.8)} for _ in range(num_colors)]
-    
-    def set_district_color(self, district, background_color, border_color):
-        district.color = background_color
-        district.border_color = border_color
-        print(f"Set color for district {district.name} id {district.id}")
-
-    def find_complementary(self, color):
-        return tuple(1 - c for c in color)
-

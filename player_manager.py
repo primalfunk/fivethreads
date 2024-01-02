@@ -12,4 +12,3 @@ class PlayerManager:
             player = Player(i)
             player.name = f"Player {i + 1}"
             self.players.append(player)
-            print(f"Created player {player.id} name {player.name}")
