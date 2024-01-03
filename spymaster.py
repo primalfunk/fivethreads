@@ -21,7 +21,7 @@ class SpyMaster:
 
     def create_spy(self, player, district):
         # Generate a unique ID and name for the spy
-        spy_id = len(self.spies) + 68
+        spy_id = len(self.spies)
         spy_name = self.generate_spy_name()
         new_spy = Spy(spy_id, district)
         new_spy.name = spy_name
@@ -36,6 +36,32 @@ class SpyMaster:
         message_popup = MessagePopup(message=spy_details)
         message_popup.open()
 
+    def move_spy(self, spy, district):
+        # Get existing district and remove the spy from it
+        old_district = spy.district
+        old_district.spies.remove(spy)
+        # Update the spy's district and add the spy to the district
+        spy.district = district
+        district.spies.append(spy)
+        self.ui_refresh_callback()
+        spy_details = f"Spy moved!\nName: {spy.name}\nID: {spy.id}\nOld District: {old_district.name}\nNew District: {spy.district.name}"
+        message_popup = MessagePopup(message=spy_details)
+        message_popup.open()
+
+    def embed_spy(self, spy, district):
+        if spy in district.spies and spy.type == 'living':
+            spy.type = 'local'
+            spy_details = f"Spy embedded in district {district.name}\nName: {spy.name}\nID: {spy.id}"
+            message_popup = MessagePopup(message=spy_details)
+            message_popup.open()
+
+    def find_spy_by_id(self, id):
+        if id is not None and id < len(self.spies):
+            return self.spies[id]
+        else:
+            print("Invalid spy ID or spy not found")
+            return None
+    
     def generate_name(self):
         first_name = random.choice(self.first_names)
         if random.randint(0, 100) < 15 :
@@ -52,7 +78,7 @@ class SpyMaster:
         return name
 
     def add_suffixes(self, name):
-        suffixes = ["Jr", "II", "III", "IV", "Sr", "Ph.D", "CPA"]
+        suffixes = ["Jr", "II", "III", "IV", "Sr", "Ph.D"]
         if random.random() < 0.15:  # 15% chance
             suffix = random.choice(suffixes)
             name = f"{name} {suffix}"

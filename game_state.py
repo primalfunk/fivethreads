@@ -13,9 +13,18 @@ class GameState:
         self.round = 1 # a round passes when every player has taken their turn once
         print(f"Turn number {self.turn_number} of round {self.round} - this is {self.player_manager.players[self.current_player_index].name}'s turn.")
 
-    def handle_menu_actions(self, action, player, district):
+    def handle_menu_actions(self, action, player, district, spy_id=None):
         if action == "Create Spy":
             self.spymaster.create_spy(player, district)
+            self.refresh_UI_callback()
+        elif action == "Move Spy":
+            # Find the spy and target district
+            spy = self.spymaster.find_spy_by_id(spy_id)
+            self.spymaster.move_spy(spy, district)
+            self.refresh_UI_callback()
+        elif action =="Embed Spy":
+            spy = self.spymaster.find_spy_by_id(spy_id)
+            self.spymaster.embed_spy(spy, district)
             self.refresh_UI_callback()
 
     def next_turn(self):

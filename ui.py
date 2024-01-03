@@ -45,7 +45,7 @@ class UI(Widget):
             separator_height=0,
             content=self.main_menu,
             size_hint=(None, None),
-            size=(self.screen_size[0] / 2, self.screen_size[1] / 2),
+            size=(self.main_menu.size),
             pos_hint={'x': 0.25, 'y': 0.25}
         )
         Clock.schedule_once(self.setup_backgrounds)
@@ -56,7 +56,6 @@ class UI(Widget):
         self.district_manager = None
         self.player_manager = None
         self.game_setup = None
-
         self.game_setup = GameSetup(self.num_players, self.num_districts, self.screen_size)
         self.districts = self.game_setup.district_manager.districts
         self.player_manager = self.game_setup.player_manager
@@ -109,6 +108,7 @@ class UI(Widget):
         self.add_widget(self.map_back_img)
 
     def redraw_UI(self):
+        self.main_menu.reset_menu()
         if hasattr(self, 'reset_button') and self.reset_button.parent:
             self.remove_widget(self.reset_button)
         if hasattr(self, 'map_border_widget') and self.map_border_widget.parent:
@@ -131,13 +131,11 @@ class UI(Widget):
             self.add_widget(label_widget)
 
     def show_main_menu(self, district):
-        self.main_menu.size = (self.screen_size[0] / 2, self.screen_size[1] / 2)  # Fixed size
-        self.main_menu.pos = (640, 360)
+        self.main_menu.pos = (self.width // 4, self.height // 4)
         self.main_menu.set_selected_district(district)
         self.main_menu.set_indicator_color()
         self.main_menu.update_action_buttons()  # Update action buttons every time
         self.main_menu.update_general_info_labels()  # Update labels every time
-        self.main_menu.add_side_buttons()  # Update side buttons every time
 
         if not self.main_menu_popup.content:
             self.main_menu_popup.content = self.main_menu

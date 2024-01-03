@@ -22,6 +22,9 @@ class DistrictManager:
         self.assign_initial_districts()
         self.assign_colors_to_districts()
 
+    def find_district_by_id(self, district_id):
+        return self.districts[district_id]
+
     def refresh_district_colors(self):
         for district in self.districts:
             if district.owner is None:

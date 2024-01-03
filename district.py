@@ -23,8 +23,6 @@ class District:
         self.spy_types = set()
         for spy in self.spies:
             self.spy_types.add(spy.type)
-        for type in list(self.spy_types):
-            print(f"Spy in District.spy_types: {type}")
         return list(self.spy_types)
 
     def generate_base_color(self):
