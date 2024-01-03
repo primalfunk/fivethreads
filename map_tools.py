@@ -56,6 +56,7 @@ class DistrictWidget(Widget):
         self.draw_district()
 
     def draw_district(self):
+        spy_types = self.district.get_spy_types()
         border_x, border_y, border_width, border_height = self.map_border.x, self.map_border.y, self.map_border.width, self.map_border.height
         original_coords = self.district.polygon.exterior.coords
         shrunk_coords = self.shrink_polygons(original_coords)
@@ -64,7 +65,14 @@ class DistrictWidget(Widget):
             Color(*self.district.color)
             vertices, indices = self.create_mesh_data(transformed_coords)
             Mesh(vertices=vertices, indices=indices, mode='triangle_fan')
-            Color(*self.district.border_color)
+            if 'local' in spy_types:
+                for spy in self.district.spies:
+                    if spy.owner:
+                        owner_color = spy.owner.base_color
+                        break
+            else:
+                owner_color = self.district.border_color
+            Color(*owner_color)
             Line(points=transformed_coords, width=2, close=True)
 
 

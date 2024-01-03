@@ -107,6 +107,29 @@ class UI(Widget):
         self.map_back_img.pos = (0, 0)
         self.add_widget(self.map_back_img)
 
+    def draw_spy_connection_line(self, district):
+        for spy in district.spies:
+            if spy.type == 'local':
+                spy_owner = spy.owner
+        
+        player_district_centroid = self.get_player_district_centroid(spy_owner)
+        spy_district_centroid = district.polygon.centroid.coords[0]
+        transformed_player_centroid = self.transform_coordinates([player_district_centroid], self.map_border.x, self.map_border.y, self.map_border.width, self.map_border.height)
+        transformed_spy_centroid = self.transform_coordinates([spy_district_centroid], self.map_border.x, self.map_border.y, self.map_border.width, self.map_border.height)
+        print(f"Transformed Player Centroid: {transformed_player_centroid}")
+        print(f"Transformed Spy Centroid: {transformed_spy_centroid}")
+        
+        with self.canvas:
+            Color(*spy_owner.base_color)
+            Line(points=[transformed_player_centroid[0], transformed_player_centroid[1],
+                        transformed_spy_centroid[0], transformed_spy_centroid[1]], width=1.5)
+
+    def get_player_district_centroid(self, player):
+        for district in self.districts:
+            if district.owner == player:
+                return district.polygon.centroid.coords[0]
+        return (0, 0)
+
     def redraw_UI(self):
         self.main_menu.reset_menu()
         if hasattr(self, 'reset_button') and self.reset_button.parent:
@@ -116,12 +139,17 @@ class UI(Widget):
         self.map_border_widget = MapBorder(self.map_border)
         self.add_widget(self.map_border_widget)
         self.add_widget(self.reset_button)
+        
         for district in self.districts:
             district_widget = DistrictWidget(district, self.map_border, self.shrink_polygons, self.transform_coordinates, self.create_mesh_data)
             if hasattr(self, f'district_widget_{district.id}') and getattr(self, f'district_widget_{district.id}').parent:
                 self.remove_widget(getattr(self, f'district_widget_{district.id}'))
             setattr(self, f'district_widget_{district.id}', district_widget)
             self.add_widget(district_widget)
+            if 'local' in district.spy_types:
+                print(f"Drawing spy connection line because we found a local in teh spy types")
+                self.draw_spy_connection_line(district)
+        
         for district in self.districts:
             label_widget = DistrictLabel(district, self.map_border, self.transform_coordinates)
             label_widget.update_label() 

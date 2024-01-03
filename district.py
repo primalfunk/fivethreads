@@ -18,6 +18,7 @@ class District:
         self.spies = []
         self.spy_types = set()
         self.level = 0
+        self.connected_to = None # takes a Player instance; indicates when a district is under the active influence of a player
 
     def get_spy_types(self):
         self.spy_types = set()

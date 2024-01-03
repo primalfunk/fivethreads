@@ -14,8 +14,10 @@ class GameState:
         print(f"Turn number {self.turn_number} of round {self.round} - this is {self.player_manager.players[self.current_player_index].name}'s turn.")
 
     def handle_menu_actions(self, action, player, district, spy_id=None):
+        # This method also for handing the AP transactions for taking the action
         if action == "Create Spy":
             self.spymaster.create_spy(player, district)
+            
             self.refresh_UI_callback()
         elif action == "Move Spy":
             # Find the spy and target district
